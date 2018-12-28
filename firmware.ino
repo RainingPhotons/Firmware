@@ -3,8 +3,12 @@ Copyright (C) RainingPhotons 2018.
 Distributed under the MIT License (license terms are at http://opensource.org/licenses/MIT).
 */
 
+#include <Adafruit_LIS3DH.h>
+#include <Adafruit_Sensor.h>
 #include <FastLED.h>
+#include <SPI.h>
 #include <UIPEthernet.h>
+#include <Wire.h>
 
 #define DEBUG_OUTPUT
 
@@ -26,12 +30,17 @@ CRGB leds_2[NUM_LEDS];
 char udp_read_buffer[64];
 EthernetUDP udp;
 
-#define IPADDRESS 192,168,1
+#define SELF_IPADDRESS 192,168,1
+#define SELF_PORT 5000
+#define SERVER_IPADDRESS 192,168,1,28
+#define SERVER_PORT 5002
 
 static const uint8_t kBaseAddress = 200;
 static const uint8_t kIPMask[4] = {255,255,255,0};
 static const uint8_t kDNS[4] = {192,168,1,1};
 static const uint8_t kGateway[4] = {192,168,1,1};
+
+Adafruit_LIS3DH lis = Adafruit_LIS3DH();
 
 uint8_t read_address() {
   pinMode(PB11, INPUT_PULLUP);
@@ -56,6 +65,8 @@ uint8_t read_address() {
   return address + kBaseAddress;
 }
 
+uint8_t address = 0;
+
 void setup() {
   // Not sure this is necessary
   delay(3000); // power-up safety delay
@@ -72,11 +83,11 @@ void setup() {
   FastLED.setDither(0);
   FastLED.show();
 
-  uint8_t address = read_address();
+  address = read_address();
 
   uint8_t mac[6] = {0xde,0xad,0xbe,0xef,0x04,address};
 
-  uint8_t ip_address[4] = {IPADDRESS, address};
+  uint8_t ip_address[4] = {SELF_IPADDRESS, address};
   Ethernet.begin(mac, ip_address, kDNS, kGateway, kIPMask);
 
 #ifdef DEBUG_OUTPUT
@@ -90,14 +101,21 @@ void setup() {
   DEBUG_OUT(Ethernet.gatewayIP());
   DEBUG_OUT(Ethernet.dnsServerIP());
 
+  if (! lis.begin(0x18)) {   // change this to 0x19 for alternative i2c address
+    DEBUG_OUT("Couldnt start");
+    while (1);
+  }
+  DEBUG_OUT("LIS3DH found!");
 
-  int success = udp.begin(5000);
+  lis.setRange(LIS3DH_RANGE_4_G);
+
 }
 
 char message[1024];
 
 void loop() {
   //check for new udp-packet:
+  udp.begin(SELF_PORT);
   int size = udp.parsePacket();
   if (size > 0) {
     do {
@@ -144,12 +162,11 @@ void loop() {
     } while ((size = udp.available())>0);
     //finish reading this packet:
     udp.flush();
-    // stop start is necessary for other clients to connect, but do we really need it?
     udp.stop();
-    udp.begin(5000);
   }
 
   blinkLED(1000);
+  readLIS3DH(1000);
 }
 
 void blinkLED(long interval) {
@@ -160,5 +177,28 @@ void blinkLED(long interval) {
     previousMillis = currentMillis;
     digitalWrite(PC13, !digitalRead(PC13));
   }
+}
 
+void readLIS3DH(long interval) {
+  static unsigned long previousMillis = 0;
+  unsigned long currentMillis = millis();
+
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;
+    lis.read();
+    bool success;
+    if (udp.beginPacket(IPAddress(SERVER_IPADDRESS),SERVER_PORT)) {
+      uint16_t buffer[4];
+      buffer[0] = address;
+      buffer[1] = lis.x;
+      buffer[2] = lis.y;
+      buffer[3] = lis.z;
+
+      udp.write(buffer, sizeof(buffer));
+      udp.endPacket();
+      udp.stop();
+    } else {
+      DEBUG_OUT("Unable to beginPacket");
+    }
+  }
 }
