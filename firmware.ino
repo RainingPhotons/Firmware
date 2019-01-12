@@ -62,7 +62,16 @@ uint8_t read_address() {
   address |= (!digitalRead(PA1) & 0x1) << 6;
   address |= (!digitalRead(PA0) & 0x1) << 7;
 
-  return address + kBaseAddress;
+  return address;
+}
+
+void show_value(uint8_t value) {
+  int i;
+
+  for (int i = 0; i < value; ++i)
+    leds_1[i] = CRGB::Red;
+
+  FastLED.show();
 }
 
 uint8_t address = 0;
@@ -84,6 +93,8 @@ void setup() {
   FastLED.show();
 
   address = read_address();
+  show_value(address);
+  address += kBaseAddress;
 
   uint8_t mac[6] = {0xde,0xad,0xbe,0xef,0x04,address};
 
