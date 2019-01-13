@@ -112,6 +112,7 @@ void setup() {
   DEBUG_OUT(Ethernet.gatewayIP());
   DEBUG_OUT(Ethernet.dnsServerIP());
 
+#if 0
   if (! lis.begin(0x18)) {   // change this to 0x19 for alternative i2c address
     DEBUG_OUT("Couldnt start");
     while (1);
@@ -119,7 +120,7 @@ void setup() {
   DEBUG_OUT("LIS3DH found!");
 
   lis.setRange(LIS3DH_RANGE_4_G);
-
+#endif
 }
 
 char message[1024];
@@ -139,9 +140,7 @@ void loop() {
         } else if (size < sizeof(udp_read_buffer)) {
           int len = udp.read(udp_read_buffer, size + 1);
           udp_read_buffer[len]=0;
-#ifdef DEBUG_OUTPUT
-          Serial.println(udp_read_buffer);
-#endif
+          DEBUG_OUT(udp_read_buffer);
           CRGB set_value;
           switch(udp_read_buffer[0]) {
             case 'r' : set_value = CRGB::Red; break;
@@ -166,9 +165,7 @@ void loop() {
         } else {
           // TODO(frk) : Handle this error
           udp.flush();
-#ifdef DEBUG_OUTPUT
-          Serial.println("This is bad, recieved a packet too large to process, dropping on the floor");
-#endif
+          DEBUG_OUT("This is bad, recieved a packet too large to process, dropping on the floor");
         }
     } while ((size = udp.available())>0);
     //finish reading this packet:
@@ -177,7 +174,9 @@ void loop() {
   }
 
   blinkLED(1000);
+#if 0
   readLIS3DH(1000);
+#endif
 }
 
 void blinkLED(long interval) {
