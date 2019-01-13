@@ -65,6 +65,30 @@ uint8_t read_address() {
   return address;
 }
 
+void set_all_leds(char *buffer) {
+  CRGB set_value;
+  switch(buffer[0]) {
+    case 'r' : set_value = CRGB::Red; break;
+    case 'g' : set_value = CRGB::Green; break;
+    case 'b' : set_value = CRGB::Blue; break;
+    default : set_value = CRGB::White; break;
+  }
+
+  int brightness = atoi(buffer + 1);
+  if (brightness > 0 && brightness < 256)
+    FastLED.setBrightness(brightness);
+
+  for (int i = 0; i < NUM_LEDS; ++i)
+    leds_1[i] = set_value;
+
+  FastLED[0].showLeds(brightness);
+
+  for (int i = 0; i < NUM_LEDS; ++i)
+    leds_2[i] = set_value;
+
+  FastLED[1].showLeds(brightness);
+}
+
 void show_value(uint8_t value) {
   int i;
 
@@ -141,27 +165,7 @@ void loop() {
           int len = udp.read(udp_read_buffer, size + 1);
           udp_read_buffer[len]=0;
           DEBUG_OUT(udp_read_buffer);
-          CRGB set_value;
-          switch(udp_read_buffer[0]) {
-            case 'r' : set_value = CRGB::Red; break;
-            case 'g' : set_value = CRGB::Green; break;
-            case 'b' : set_value = CRGB::Blue; break;
-            default : set_value = CRGB::White; break;
-          }
-
-          int brightness = atoi(udp_read_buffer + 1);
-          if (brightness > 0 && brightness < 256)
-            FastLED.setBrightness(brightness);
-
-          for (int i = 0; i < NUM_LEDS; ++i)
-            leds_1[i] = set_value;
-
-          FastLED[0].showLeds(brightness);
-
-          for (int i = 0; i < NUM_LEDS; ++i)
-            leds_2[i] = set_value;
-
-          FastLED[1].showLeds(brightness);
+          set_all_leds(udp_read_buffer);
         } else {
           // TODO(frk) : Handle this error
           udp.flush();
