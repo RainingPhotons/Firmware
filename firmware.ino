@@ -31,6 +31,7 @@ char udp_read_buffer[64];
 EthernetUDP udp;
 uint8_t address = 0;
 bool accelerometer_enabled = false;
+uint32_t sample_rate = 1000;
 
 #define SELF_IPADDRESS 192,168,1
 #define SELF_PORT 5000
@@ -67,16 +68,16 @@ uint8_t read_address() {
   return address;
 }
 
-void set_all_leds(char *buffer) {
+void set_all_leds(uint8_t command, int32_t value) {
   CRGB set_value;
-  switch(buffer[0]) {
+  switch(command) {
     case 'r' : set_value = CRGB::Red; break;
     case 'g' : set_value = CRGB::Green; break;
     case 'b' : set_value = CRGB::Blue; break;
     default : set_value = CRGB::White; break;
   }
 
-  int brightness = atoi(buffer + 1);
+  int brightness = value;
   if (brightness > 0 && brightness < 256)
     FastLED.setBrightness(brightness);
 
@@ -169,7 +170,14 @@ void loop() {
           int len = udp.read(udp_read_buffer, size + 1);
           udp_read_buffer[len]=0;
           DEBUG_OUT(udp_read_buffer);
-          set_all_leds(udp_read_buffer);
+          uint8_t command = udp_read_buffer[0];
+          int32_t value = atoi(udp_read_buffer + 1);
+
+          switch(command) {
+            case 's' : sample_rate = value; break;
+            case 'a' : accelerometer_enabled = value; break;
+            default : set_all_leds(command, value);
+          }
         } else {
           // TODO(frk) : Handle this error
           udp.flush();
@@ -181,9 +189,9 @@ void loop() {
     udp.stop();
   }
 
-  blinkLED(1000);
+  blinkLED(sample_rate);
   if (accelerometer_enabled)
-    readLIS3DH(1000);
+    readLIS3DH(sample_rate);
 }
 
 void blinkLED(long interval) {
