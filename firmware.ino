@@ -29,6 +29,8 @@ CRGB leds_2[NUM_LEDS];
 
 char udp_read_buffer[64];
 EthernetUDP udp;
+uint8_t address = 0;
+bool accelerometer_enabled = false;
 
 #define SELF_IPADDRESS 192,168,1
 #define SELF_PORT 5000
@@ -89,16 +91,18 @@ void set_all_leds(char *buffer) {
   FastLED[1].showLeds(brightness);
 }
 
-void show_value(uint8_t value) {
+void show_value(uint8_t strand, uint8_t value) {
   int i;
 
+  CRGB *leds = leds_1;
+  if (strand == 1)
+    leds = leds_2;
+
   for (int i = 0; i < value; ++i)
-    leds_1[i] = CRGB::Red;
+    leds[i] = CRGB::Red;
 
   FastLED.show();
 }
-
-uint8_t address = 0;
 
 void setup() {
   // Not sure this is necessary
@@ -117,7 +121,7 @@ void setup() {
   FastLED.show();
 
   address = read_address();
-  show_value(address);
+  show_value(0, address);
   address += kBaseAddress;
 
   uint8_t mac[6] = {0xde,0xad,0xbe,0xef,0x04,address};
@@ -136,15 +140,15 @@ void setup() {
   DEBUG_OUT(Ethernet.gatewayIP());
   DEBUG_OUT(Ethernet.dnsServerIP());
 
-#if 0
-  if (! lis.begin(0x18)) {   // change this to 0x19 for alternative i2c address
+  if (!lis.begin(0x18)) {
     DEBUG_OUT("Couldnt start");
-    while (1);
+    show_value(1, 1);
+    accelerometer_enabled = false;
+  } else {
+    DEBUG_OUT("LIS3DH found!");
+    accelerometer_enabled = false;
+    lis.setRange(LIS3DH_RANGE_4_G);
   }
-  DEBUG_OUT("LIS3DH found!");
-
-  lis.setRange(LIS3DH_RANGE_4_G);
-#endif
 }
 
 char message[1024];
@@ -178,9 +182,8 @@ void loop() {
   }
 
   blinkLED(1000);
-#if 0
-  readLIS3DH(1000);
-#endif
+  if (accelerometer_enabled)
+    readLIS3DH(1000);
 }
 
 void blinkLED(long interval) {
