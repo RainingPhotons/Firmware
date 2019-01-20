@@ -161,12 +161,27 @@ void loop() {
   int size = udp.parsePacket();
   if (size > 0) {
     do {
-        if (size == 360) {
+        if (size == 720 || size == 722) {
           udp.read(message, size + 1);
-          memcpy(leds_1, message, sizeof(CRGB) * 2 * 60);
-          memcpy(leds_2, message, sizeof(CRGB) * 2 * 60);
-          FastLED[0].showLeds(255);
-          FastLED[1].showLeds(255);
+          memcpy(leds_1, message + 0, sizeof(leds_1));
+          memcpy(leds_2, message + sizeof(leds_1), sizeof(leds_2));
+          int brightness_1 = 255;
+          int brightness_2 = 255;
+          if (size == 722) {
+            brightness_1 = message[720];
+            brightness_2 = message[721];
+          }
+          FastLED[0].showLeds(brightness_1);
+          FastLED[1].showLeds(brightness_2);
+        } else if (size == 360 || size == 361) {
+          udp.read(message, size + 1);
+          memcpy(leds_1, message, sizeof(leds_1));
+          memcpy(leds_2, message, sizeof(leds_2));
+          int brightness = 255;
+          if (size == 361)
+            brightness = message[360];
+          FastLED[0].showLeds(brightness);
+          FastLED[1].showLeds(brightness);
         } else if (size < sizeof(udp_read_buffer)) {
           int len = udp.read(udp_read_buffer, size + 1);
           udp_read_buffer[len]=0;
