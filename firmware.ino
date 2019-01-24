@@ -32,6 +32,7 @@ EthernetUDP udp;
 uint8_t address = 0;
 bool accelerometer_enabled = false;
 uint32_t sample_rate = 1000;
+bool auto_refresh = true;
 
 #define SELF_IPADDRESS 192,168,1
 #define SELF_PORT 5000
@@ -81,15 +82,15 @@ void set_all_leds(uint8_t command, int32_t value) {
   if (brightness > 0 && brightness < 256)
     FastLED.setBrightness(brightness);
 
-  for (int i = 0; i < NUM_LEDS; ++i)
+  for (int i = 0; i < NUM_LEDS; ++i) {
     leds_1[i] = set_value;
-
-  FastLED[0].showLeds(brightness);
-
-  for (int i = 0; i < NUM_LEDS; ++i)
     leds_2[i] = set_value;
+ }
 
-  FastLED[1].showLeds(brightness);
+  if (auto_refresh) {
+    FastLED[0].showLeds(brightness);
+    FastLED[1].showLeds(brightness);
+  }
 }
 
 void show_value(uint8_t strand, uint8_t value) {
@@ -171,8 +172,10 @@ void loop() {
             brightness_1 = message[720];
             brightness_2 = message[721];
           }
-          FastLED[0].showLeds(brightness_1);
-          FastLED[1].showLeds(brightness_2);
+          if (auto_refresh) {
+            FastLED[0].showLeds(brightness_1);
+            FastLED[1].showLeds(brightness_2);
+          }
         } else if (size == 360 || size == 361) {
           udp.read(message, size + 1);
           memcpy(leds_1, message, sizeof(leds_1));
@@ -180,8 +183,10 @@ void loop() {
           int brightness = 255;
           if (size == 361)
             brightness = message[360];
-          FastLED[0].showLeds(brightness);
-          FastLED[1].showLeds(brightness);
+          if (auto_refresh) {
+            FastLED[0].showLeds(brightness);
+            FastLED[1].showLeds(brightness);
+          }
         } else if (size < sizeof(udp_read_buffer)) {
           int len = udp.read(udp_read_buffer, size + 1);
           udp_read_buffer[len]=0;
@@ -192,6 +197,11 @@ void loop() {
           switch(command) {
             case 's' : sample_rate = value; break;
             case 'a' : accelerometer_enabled = value; break;
+            case 'c' : auto_refresh = value; break;
+            case 'd' :
+              FastLED[0].showLeds(value);
+              FastLED[1].showLeds(value);
+              break;
             default : set_all_leds(command, value);
           }
         } else {
