@@ -30,7 +30,8 @@ CRGB leds_2[NUM_LEDS];
 char udp_read_buffer[64];
 EthernetUDP udp;
 uint8_t address = 0;
-bool accelerometer_enabled = false;
+bool accelerometer_enabled = true;
+bool start_mode = true;
 uint32_t sample_rate = 1000;
 bool auto_refresh = true;
 
@@ -106,6 +107,22 @@ void show_value(uint8_t strand, uint8_t value) {
   FastLED.show();
 }
 
+void show_accData(uint8_t strand, uint8_t value) {
+  int i;
+
+  CRGB *leds = leds_1;
+  if (strand == 1)
+    leds = leds_2;
+
+  for (int i = 0; i < value; i++) {
+    leds[i] = CRGB::Green;
+  }
+  for (int i = value; i < NUM_LEDS; i++) {
+    leds[i] = CRGB::Black;
+  }
+  FastLED.show();
+}
+
 void setup() {
   // Not sure this is necessary
   delay(3000); // power-up safety delay
@@ -146,10 +163,10 @@ void setup() {
   if (!lis.begin(0x18)) {
     DEBUG_OUT("Couldnt start");
     show_value(1, 1);
-    accelerometer_enabled = false;
+    accelerometer_enabled = true;
   } else {
     DEBUG_OUT("LIS3DH found!");
-    accelerometer_enabled = false;
+    accelerometer_enabled = true;
     lis.setRange(LIS3DH_RANGE_4_G);
   }
 }
@@ -198,6 +215,7 @@ void loop() {
             case 's' : sample_rate = value; break;
             case 'a' : accelerometer_enabled = value; break;
             case 'c' : auto_refresh = value; break;
+            case 'x' : start_mode = value; break;
             case 'd' :
               FastLED[0].showLeds(value);
               FastLED[1].showLeds(value);
@@ -244,7 +262,10 @@ void readLIS3DH(long interval) {
       buffer[1] = lis.x;
       buffer[2] = lis.y;
       buffer[3] = lis.z;
-
+      if (start_mode) {
+        //show_accData(1, (abs(lis.x) + abs(lis.y) + abs(lis.z))>>9);
+        show_accData(1, min((abs(lis.x))>>5, NUM_LEDS));
+      }
       udp.write(buffer, sizeof(buffer));
       udp.endPacket();
       udp.stop();
